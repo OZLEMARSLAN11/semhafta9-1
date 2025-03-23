@@ -1,23 +1,27 @@
-import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { RootState } from '@/lib/features/store';
-
 
 export interface Todo {
     id: string;
     text: string;
     completed: boolean;
+    createdAt: Date;
   }
   
   interface TodosState {
     items: Todo[];
     status: 'idle' | 'loading' | 'succeeded' | 'failed';
     error: string | null;
+    filter: 'all' | 'active' | 'completed';
+    sortBy: 'default' | 'alphabetical-asc' | 'alphabetical-desc' | 'date-asc' | 'date-desc';
   }
   
   const initialState: TodosState = {
     items: [],
     status: 'idle',
     error: null,
+    filter: 'all',
+    sortBy: 'default',
   };
   
   // Async thunk for fetching initial todos
@@ -42,6 +46,7 @@ export interface Todo {
           id: Date.now().toString(),
           text: action.payload,
           completed: false,
+          createdAt: new Date()
         };
         state.items.push(newTodo);
       },
@@ -53,6 +58,12 @@ export interface Todo {
       },
       removeTodo: (state, action: PayloadAction<string>) => {
         state.items = state.items.filter((todo) => todo.id !== action.payload);
+      },
+      setFilter: (state, action: PayloadAction<'all' | 'active' | 'completed'>) => {
+        state.filter = action.payload;
+      },
+      setSortBy: (state, action: PayloadAction<'default' | 'alphabetical-asc' | 'alphabetical-desc' | 'date-asc' | 'date-desc'>) => {
+        state.sortBy = action.payload;
       },
     },
     extraReducers: (builder) => {
@@ -72,10 +83,39 @@ export interface Todo {
     },
   });
   
-  export const { addTodo, toggleTodo, removeTodo } = todosSlice.actions;
+  export const { addTodo, toggleTodo, removeTodo, setFilter, setSortBy } = todosSlice.actions;
   
-  export const selectTodos = (state: RootState) => state.todos.items;
   export const selectTodosStatus = (state: RootState) => state.todos.status;
   export const selectTodosError = (state: RootState) => state.todos.error;
+  export const selectFilter = (state: RootState) => state.todos.filter;
+  export const selectSortBy = (state: RootState) => state.todos.sortBy;
+  
+  export const selectTodos = (state: RootState) => {
+    const allTodos = state.todos.items;
+    const filter = state.todos.filter;
+    const sortBy = state.todos.sortBy;
+    
+    // Filtreleme
+    let filteredTodos = allTodos;
+    if (filter === 'active') {
+      filteredTodos = allTodos.filter(todo => !todo.completed);
+    } else if (filter === 'completed') {
+      filteredTodos = allTodos.filter(todo => todo.completed);
+    }
+    
+    // Sıralama
+    const sortedTodos = [...filteredTodos];
+    if (sortBy === 'alphabetical-asc') {
+      sortedTodos.sort((a, b) => a.text.localeCompare(b.text, "tr"));
+    } else if (sortBy === 'alphabetical-desc') {
+      sortedTodos.sort((a, b) => b.text.localeCompare(a.text, "tr"));
+    } else if (sortBy === 'date-desc') {
+      sortedTodos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (sortBy === 'date-asc') {
+      sortedTodos.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    
+    return sortedTodos;
+  };
   
   export default todosSlice.reducer;
